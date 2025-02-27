@@ -1,120 +1,63 @@
-# views.py
-
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, get_user_model
 from django.contrib import messages
 from rest_framework import generics, permissions
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.exceptions import ValidationError
-from drf_spectacular.utils import extend_schema, OpenApiParameter
-from drf_spectacular.types import OpenApiTypes
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
 from .serializers import CustomTokenObtainPairSerializer, UserSerializer
+from profileManagement.tasks import create_user_profile, save_user_profile
 
-User = get_user_model()  # Get the custom user model
+User = get_user_model()
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
-    @extend_schema(
-        description="Obtain a pair of JWT tokens (access and refresh)",
-        request=CustomTokenObtainPairSerializer,
+    @swagger_auto_schema(
+        operation_description="Obtain a pair of JWT tokens (access and refresh)",
+        request_body=CustomTokenObtainPairSerializer,
         responses={
-            200: {
-                "description": "JWT Tokens",
-                "content": {
-                    "application/json": {
-                        "example": {
-                            "access": "your-access-token",
-                            "refresh": "your-refresh-token"
-                        }
-                    }
-                }
-            },
-            400: {
-                "description": "Validation Error",
-                "content": {
-                    "application/json": {
-                        "example": {
-                            "detail": "Invalid credentials"
-                        }
-                    }
-                }
-            }
-        },
-        parameters=[
-            OpenApiParameter(
-                name="username",
-                type=OpenApiTypes.STR,
-                location="form",
-                description="Username of the user"
+            200: openapi.Response(
+                description="JWT Tokens",
+                examples={"application/json": {"access": "your-access-token", "refresh": "your-refresh-token"}}
             ),
-            OpenApiParameter(
-                name="password",
-                type=OpenApiTypes.STR,
-                location="form",
-                description="Password of the user"
-            ),
-        ]
+            400: openapi.Response(
+                description="Validation Error",
+                examples={"application/json": {"detail": "Invalid credentials"}}
+            )
+        }
     )
     def post(self, request, *args, **kwargs):
         return super().post(request, *args, **kwargs)
-
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [permissions.AllowAny]
 
-    @extend_schema(
-        description="Register a new user with role selection (HR or Seeker)",
-        request=UserSerializer,
+    @swagger_auto_schema(
+        operation_description="Register a new user with role selection (trader, seller, customer)",
+        request_body=UserSerializer,
         responses={
             201: UserSerializer,
-            400: {
-                "description": "Validation Error", 
-                "content": {
-                    "application/json": {
-                        "example": {
-                            "detail": "Invalid role or username already exists"
-                        }
-                    }
-                }
-            }
-        },
-        parameters=[
-            OpenApiParameter(
-                name="email",
-                type=OpenApiTypes.STR,
-                location="form",
-                description="Email of the new user"
-            ),
-            OpenApiParameter(
-                name="username",
-                type=OpenApiTypes.STR,
-                location="form",
-                description="Username of the new user"
-            ),
-            OpenApiParameter(
-                name="password",
-                type=OpenApiTypes.STR,
-                location="form",
-                description="Password for the new user"
-            ),
-            OpenApiParameter(
-                name="role",
-                type=OpenApiTypes.STR,
-                location="form",
-                description="Role of the new user: 'seeker' or 'hr'"
-            ),
-        ]
+            400: openapi.Response(
+                description="Validation Error",
+                examples={"application/json": {"detail": "Invalid role or username already exists"}}
+            )
+        }
     )
     def post(self, request, *args, **kwargs):
         role = request.data.get('role')
-        if role not in ['seeker', 'hr']:
-            raise ValidationError({'role': 'Role must be either "seeker" or "hr"'})
+        valid_roles = [choice[0] for choice in User.ROLE_CHOICES if choice[0] != 'admin']
+        if role not in valid_roles:
+            raise ValidationError({'role': f'Role must be one of: {", ".join(valid_roles)}'})
         return super().post(request, *args, **kwargs)
-    
+
+    def perform_create(self, serializer):
+        user = serializer.save()
+        create_user_profile.delay(user.id)
 
 def login_view(request):
     if request.method == 'POST':
@@ -123,30 +66,30 @@ def login_view(request):
         user = authenticate(request, username=username, password=password)
         if user is not None:
             login(request, user)
+            save_user_profile.delay(user.id)
             messages.success(request, 'Logged in successfully!')
             return redirect('home')
         else:
             messages.error(request, 'Invalid credentials')
     return render(request, 'users/login.html', {'title': 'Login'})
 
-
 def register_view(request):
     if request.method == 'POST':
         username = request.POST.get('username')
         password = request.POST.get('password')
-        role = request.POST.get('role')  # Get role from form
-
+        role = request.POST.get('role')
         if not username or not password or not role:
             messages.error(request, 'Please fill out all fields, including role.')
         else:
-            if role not in ['seeker', 'hr']:
-                messages.error(request, 'Invalid role selected.')
+            valid_roles = [choice[0] for choice in User.ROLE_CHOICES if choice[0] != 'admin']
+            if role not in valid_roles:
+                messages.error(request, f'Invalid role selected. Choose from: {", ".join(valid_roles)}')
             else:
                 if User.objects.filter(username=username).exists():
                     messages.error(request, 'Username already taken.')
                 else:
-                    User.objects.create_user(username=username, password=password, role=role)
+                    user = User.objects.create_user(username=username, password=password, role=role)
+                    create_user_profile.delay(user.id)
                     messages.success(request, 'Registered successfully!')
                     return redirect('login')
-
     return render(request, 'users/register.html', {'title': 'Register'})

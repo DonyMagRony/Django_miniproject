@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container">
+    <h2>Products</h2>
+    <div class="row" id="productList">
+        <!-- Products loaded here -->
+    </div>
+</div>
+
+<script src="{% static 'js/api.js' %}"></script>
+<script>
+async function loadProducts() {
+    try {
+        const response = await apiFetch('/api/api/products/');
+        // Handle both paginated and non-paginated responses
+        const products = response.results || response;
+
+        const productList = document.getElementById('productList');
+        productList.innerHTML = products.map(product => `
+            <div class="col-md-4 mb-3">
+                <div class="card">
+                    ${product.image ?
+                        `<img src="${product.image}" class="card-img-top" alt="${product.name}" style="height: 200px; object-fit: cover;">` :
+                        '<div class="card-img-top bg-secondary text-white d-flex align-items-center justify-content-center" style="height: 200px;">No Image</div>'}
+                    <div class="card-body">
+                        <h5 class="card-title">${product.name}</h5>
+                        <p class="card-text">${product.description?.substring(0, 100) || ''}${product.description?.length > 100 ? '...' : ''}</p>
+                        <p class="card-text"><strong>Price:</strong> $${product.price}</p>
+                        <p class="card-text"><strong>Stock:</strong> ${product.stock_quantity}</p>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Error loading products:', error);
+        productList.innerHTML = `<p class="text-danger">Error: ${error.message}</p>`;
+    }
+}
+
+loadProducts();
+</script>
+{% endblock %}
