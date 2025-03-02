@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+    <h2>User Profile</h2>
+    <form method="post" enctype="multipart/form-data" id="profileForm">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="username">Username</label>
+            <input type="text" class="form-control" id="username" name="username" value="{{ user.username }}" readonly>
+        </div>
+        <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" class="form-control" id="email" name="email" value="{{ user.email }}">
+        </div>
+        <div class="form-group">
+            <label for="profile_image">Profile Image</label>
+            {% if user.profile.profile_image %}
+                <img src="{{ user.profile.profile_image.url }}" alt="Profile" class="img-thumbnail" style="max-width: 200px;">
+            {% endif %}
+            <input type="file" class="form-control-file" id="profile_image" name="profile_image">
+        </div>
+        <div class="form-group">
+            <label for="phone_number">Phone Number</label>
+            <input type="text" class="form-control" id="phone_number" name="phone_number" value="{{ user.profile.phone_number }}">
+        </div>
+        <div class="form-group">
+            <label for="address">Address</label>
+            <textarea class="form-control" id="address" name="address">{{ user.profile.address }}</textarea>
+        </div>
+        <div class="form-group">
+            <label for="bio">Bio</label>
+            <textarea class="form-control" id="bio" name="bio">{{ user.profile.bio }}</textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+    </form>
+</div>
+
+<script>
+document.getElementById('profileForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    
+    try {
+        const response = await fetch('/api/profiles/me/', {
+            method: 'PUT',
+            headers: {
+                'Authorization': 'Token ' + "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzQwNzY3Nzk0LCJpYXQiOjE3NDA2ODEzOTQsImp0aSI6IjQxNzU5MDEzNmZkYjRlMjI5YzYwZjFhYTAxMzIyMTk0IiwidXNlcl9pZCI6MX0.AqEwJQiS4AssLlWa40p2md_u27eBWum9QUcy2ECnZgc",
+            },
+            body: formData
+        });
+        
+        if (response.ok) {
+            alert('Profile updated successfully!');
+            window.location.reload();
+        } else {
+            const error = await response.json();
+            alert('Error: ' + JSON.stringify(error));
+        }
+    } catch (err) {
+        console.error('Error:', err);
+        alert('An error occurred while updating the profile');
+    }
+});
+</script>
+{% endblock %}

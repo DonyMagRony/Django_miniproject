@@ -1,9 +1,11 @@
-# myapp/permissions.py
-from rest_framework.permissions import BasePermission, SAFE_METHODS
+from rest_framework.permissions import BasePermission
 
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
-class TraderOnlyForUnsafe(BasePermission):
+class IsSellerOrAdminForWrite(BasePermission):
     def has_permission(self, request, view):
-        if view.action in ['list', 'retrieve']:
+        if request.method in ['GET']:
             return True
-        return request.user.is_authenticated and request.user.role == 'trader'
+        return request.user.is_authenticated and (request.user.role == 'seller' or request.user.is_staff)
+
+class IsOrderOwner(BasePermission):
+    def has_object_permission(self, request, view, obj):
+        return obj.customer == request.user or obj.sales_rep == request.user

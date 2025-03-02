@@ -49,7 +49,7 @@ INSTALLED_APPS = [
     'trade',
     'userManagement',
 
-
+    'channels',
     'taggit',
     'corsheaders',
     'rest_framework',
@@ -57,7 +57,13 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'django_extensions',
 ]
+ASGI_APPLICATION = 'your_project.asgi.application'  # Replace 'your_project' with your project name
 
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',  # For development
+    },
+}
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
@@ -155,10 +161,10 @@ REST_FRAMEWORK = {
         'django_filters.rest_framework.DjangoFilterBackend'
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework.authentication.SessionAuthentication',
-        'rest_framework.authentication.BasicAuthentication',
-        'rest_framework.authentication.TokenAuthentication',
-    ),
+    'rest_framework_simplejwt.authentication.JWTAuthentication',  # JWT Auth
+    'rest_framework.authentication.TokenAuthentication',  # Token Auth (optional)
+    'rest_framework.authentication.SessionAuthentication',  # Session Auth (optional)
+    'rest_framework.authentication.BasicAuthentication',    ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
@@ -224,28 +230,9 @@ SPECTACULAR_SETTINGS = {
     },
 }
 
-
-
-CELERY_BROKER_URL = 'redis://localhost:6379/0'  # Example using Redis
-CELERY_RESULT_BACKEND = 'redis://localhost:6379/1'  # Example result backend
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_TASK_ALWAYS_EAGER = True
-
 # celery -A miniproject2 worker --loglevel=info
 # celery -A miniproject2 beat --loglevel=info
 
-# settings.py
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": "redis://127.0.0.1:6379/1",
-        "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-        },
-        "KEY_PREFIX": "jumys"
-    }
-}
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -302,10 +289,23 @@ TEMPLATES = [
     },
 ]
 
-# Celery Configuration
-CELERY_BROKER_URL = 'redis://localhost:6379/0'  # Redis as message broker
-CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'  # Store task results
-CELERY_ACCEPT_CONTENT = ['json']  # Tasks can only receive JSON data
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = 'UTC'  # Match Django's timezone
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": "redis://localhost",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+    }
+}
+
+# Default primary key field type
+# https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
+
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Celery Config
+CELERY_BROKER_URL = "redis://localhost"
+CELERY_RESULT_BACKEND = "redis://localhost"
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"

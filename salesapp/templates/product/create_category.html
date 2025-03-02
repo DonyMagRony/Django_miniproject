@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+    <h2>Create Category</h2>
+    <form id="categoryForm" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="name">Name</label>
+            <input type="text" class="form-control" id="name" name="name" required>
+        </div>
+        <div class="form-group">
+            <label for="description">Description</label>
+            <textarea class="form-control" id="description" name="description"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Create Category</button>
+    </form>
+</div>
+
+<script>
+document.getElementById('categoryForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    
+    try {
+        const response = await fetch('/api/categories/', {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Token ' + localStorage.getItem('token'),
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: formData
+        });
+        
+        if (response.ok) {
+            alert('Category created successfully!');
+            window.location.href = '/products/';  // Redirect to product list or wherever
+        } else {
+            const error = await response.json();
+            alert('Error: ' + JSON.stringify(error));
+        }
+    } catch (err) {
+        console.error('Error:', err);
+        alert('An error occurred while creating the category');
+    }
+});
+</script>
+{% endblock %}

@@ -11,12 +11,30 @@ class OrderItemSerializer(serializers.ModelSerializer):
         source='product',
         write_only=True
     )
-    subtotal = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
-
+    quantity = serializers.IntegerField(
+        min_value=1,
+        max_value=2147483647  # Max for PositiveIntegerField
+    )
+    subtotal = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        read_only=True  # Add this
+    )
     class Meta:
         model = OrderItem
         fields = ['id', 'order', 'product', 'product_id', 'quantity', 'price', 'subtotal']
-        read_only_fields = ['order']
+        read_only_fields = ['order', 'price']  # Price is read-only
+
+    def create(self, validated_data):
+        # Auto-set price from product
+        product = validated_data['product']
+        validated_data['price'] = product.price
+        return super().create(validated_data)
+
+    def validate(self, data):
+        if 'price' not in data:
+            data['price'] = data['product'].price
+        return data
 
 class InvoiceSerializer(serializers.ModelSerializer):
     class Meta:
@@ -46,10 +64,7 @@ class SalesOrderSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         items_data = validated_data.pop('orderitem_set')
-        order = SalesOrder.objects.create(
-            sales_rep=self.context['request'].user,
-            **validated_data
-        )
+        order = SalesOrder.objects.create(**validated_data)  # Removed sales_rep here
         for item_data in items_data:
             OrderItem.objects.create(order=order, **item_data)
         return order

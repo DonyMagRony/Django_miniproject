@@ -2,13 +2,13 @@ from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from .models import SalesOrder, Invoice
 from .serializers import SalesOrderSerializer, InvoiceSerializer
-from product.permissions import TraderOnlyForUnsafe
+from .permissions import IsSellerOrAdminForWrite,IsOrderOwner
 from rest_framework.renderers import JSONRenderer
 
 class SalesOrderViewSet(viewsets.ModelViewSet):
     queryset = SalesOrder.objects.all()
     serializer_class = SalesOrderSerializer
-    permission_classes = [IsAuthenticated, TraderOnlyForUnsafe]
+    permission_classes = [IsAuthenticated, IsSellerOrAdminForWrite, IsOrderOwner]
     renderer_classes = [JSONRenderer]
 
     def get_queryset(self):
@@ -20,12 +20,14 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
         return SalesOrder.objects.filter(customer=user)
 
     def perform_create(self, serializer):
-        serializer.save(sales_rep=self.request.user)
-
+        serializer.save(
+            sales_rep=self.request.user,
+            customer=serializer.validated_data['customer']
+        )
 class InvoiceViewSet(viewsets.ModelViewSet):
     queryset = Invoice.objects.all()
     serializer_class = InvoiceSerializer
-    permission_classes = [IsAuthenticated, TraderOnlyForUnsafe]
+    permission_classes = [IsAuthenticated, IsSellerOrAdminForWrite, IsOrderOwner]
     renderer_classes = [JSONRenderer]
 
     def get_queryset(self):

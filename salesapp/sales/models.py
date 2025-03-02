@@ -28,12 +28,20 @@ class SalesOrder(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    def total(self):
-        item_total = sum(item.price * item.quantity for item in self.orderitem_set.all())
-        return item_total - self.discount
 
     def __str__(self):
         return f"Order {self.id} by {self.customer.username} (Rep: {self.sales_rep.username})"
+
+    @property
+    def total(self):
+        item_total = sum(item.subtotal for item in self.orderitem_set.all())
+        return item_total * (1 - self.discount/100)
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if hasattr(self, 'invoice'):
+            self.invoice.total_amount = self.total
+            self.invoice.save()
 
     class Meta:
         ordering = ['-created_at']
@@ -44,6 +52,7 @@ class OrderItem(models.Model):
     quantity = models.PositiveIntegerField(default=1)  # Default added
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)  # Default added
 
+    @property
     def subtotal(self):
         return self.price * self.quantity
 
@@ -64,7 +73,7 @@ class Invoice(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.pk and not self.total_amount:
-            self.total_amount = self.order.total()
+            self.total_amount = self.order.total  # Remove ()
         super().save(*args, **kwargs)
 
     def __str__(self):
