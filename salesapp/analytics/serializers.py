@@ -1,20 +1,14 @@
-# myapp/serializers.py
+# analytics/serializers.py
 from rest_framework import serializers
-from product.models import Product, Category
+from .models import Report, TradingVolumeSnapshot
 
-class CategorySerializer(serializers.ModelSerializer):
+class ReportSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Category
-        fields = '__all__'
+        model = Report
+        fields = ['id', 'report_type', 'start_date', 'end_date', 'status', 'generated_at']
+        read_only_fields = ['status', 'generated_at']
 
-class ProductSerializer(serializers.ModelSerializer):
-    tags = serializers.SlugRelatedField(
-        many=True, 
-        slug_field='name', 
-        queryset=None,  
-        required=False
-    )
-
+class TradingVolumeSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Product
-        fields = '__all__'
+        model = TradingVolumeSnapshot
+        fields = ['timestamp', 'product', 'total_volume', 'average_price']
